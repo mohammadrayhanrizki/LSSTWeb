@@ -19,90 +19,119 @@ $role = $user['role'];
 $ic_name = htmlspecialchars($user['ic_name']);
 
 // ==========================================
-// 1. FITUR EXPORT CSV (Khusus Treasurer)
+// 1. FITUR EXPORT EXCEL (Khusus Treasurer)
 // ==========================================
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['export_csv']) && $role === 'Treasurer') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['export_csv']) && in_array($role, ['Treasurer', 'Admin'])) {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) {
         die("Request tidak valid.");
     }
 
-    // Nama file yang akan didownload
-    $filename = "Laporan_Kas_LSST_" . date('Ymd_His') . ".csv";
+    // Ubah ekstensi menjadi .xls untuk trik HTML to Excel
+    $filename = "Laporan_Kas_LSST_" . date('Ymd_His') . ".xls";
     
-    // Set header agar browser men-download file, bukan menampilkannya
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    // Set header khusus Excel
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header("Pragma: no-cache");
+    header("Expires: 0");
     
-    // Buka output stream
-    $output = fopen('php://output', 'w');
-    
-    // Tambahkan BOM UTF-8 agar Excel dapat membaca karakter dengan benar
-    fputs($output, "\xEF\xBB\xBF");
-    
-    // Judul Dokumen
-    fputcsv($output, ['LAPORAN ARUS KAS - LOS SANTOS STREET TEAM']);
-    fputcsv($output, ['Tanggal Cetak:', date('d/m/Y H:i:s')]);
-    fputcsv($output, []); // Baris Kosong
-    
-    // Header kolom untuk Excel
-    fputcsv($output, ['No.', 'Tanggal', 'Jam', 'Pencatat (IC)', 'Jenis Transaksi', 'Keterangan', 'Pemasukan ($)', 'Pengeluaran ($)', 'Nominal Bersih ($)']);
-    
-    // Ambil semua data kas
-    $query_export = mysqli_query($conn, "
-        SELECT k.id, k.created_at, u.ic_name, k.type, k.amount, k.description 
-        FROM kas_transactions k 
-        JOIN users u ON k.user_id = u.id 
-        ORDER BY k.created_at ASC
-    ");
-    
-    $no = 1;
-    $total_masuk = 0;
-    $total_keluar = 0;
-    
-    // Masukkan data ke CSV baris per baris
-    while ($row = mysqli_fetch_assoc($query_export)) {
-        $tgl = date('d/m/Y', strtotime($row['created_at']));
-        $jam = date('H:i', strtotime($row['created_at']));
-        $jenis = $row['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran';
+    // Render tabel HTML untuk dibaca oleh Excel (agar ada garis rapi)
+    ?>
+    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif;">
+        <!-- Kop Laporan -->
+        <tr>
+            <th colspan="9" style="font-size:16px; text-align:center; background-color:#f0f0f0;">LAPORAN ARUS KAS - LOS SANTOS STREET TEAM</th>
+        </tr>
+        <tr>
+            <td colspan="9" style="text-align:center; background-color:#f0f0f0;">Tanggal Cetak: <?= date('d/m/Y H:i:s'); ?></td>
+        </tr>
+        <tr><td colspan="9" style="border:none;"></td></tr>
         
-        $pemasukan = $row['type'] == 'INCOME' ? $row['amount'] : 0;
-        $pengeluaran = $row['type'] == 'EXPENSE' ? $row['amount'] : 0;
+        <!-- Header Kolom (Berwarna dan Tebal) -->
+        <tr>
+            <th style="background-color:#1e412e; color:white; width: 40px;">No.</th>
+            <th style="background-color:#1e412e; color:white; width: 80px;">Tanggal</th>
+            <th style="background-color:#1e412e; color:white; width: 60px;">Jam</th>
+            <th style="background-color:#1e412e; color:white; width: 150px;">Pencatat (IC)</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Jenis Transaksi</th>
+            <th style="background-color:#1e412e; color:white; width: 300px;">Keterangan</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Pemasukan ($)</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Pengeluaran ($)</th>
+            <th style="background-color:#1e412e; color:white; width: 150px;">Nominal Bersih ($)</th>
+        </tr>
         
-        // Nominal bersih berguna agar di excel bisa gampang dijumlah (SUM)
-        $nominal_bersih = $row['type'] == 'INCOME' ? $row['amount'] : -$row['amount'];
+        <?php
+        $query_export = mysqli_query($conn, "
+            SELECT k.id, k.created_at, u.ic_name, k.type, k.amount, k.description 
+            FROM kas_transactions k 
+            JOIN users u ON k.user_id = u.id 
+            ORDER BY k.created_at ASC
+        ");
         
-        fputcsv($output, [
-            $no++,
-            $tgl,
-            $jam,
-            $row['ic_name'],
-            $jenis,
-            $row['description'],
-            $pemasukan,
-            $pengeluaran,
-            $nominal_bersih
-        ]);
+        $no = 1;
+        $total_masuk = 0;
+        $total_keluar = 0;
         
-        $total_masuk += $pemasukan;
-        $total_keluar += $pengeluaran;
-    }
-    
-    $saldo_akhir = $total_masuk - $total_keluar;
-    
-    // Tambahkan Summary di bawah tabel
-    fputcsv($output, []); // Baris Kosong
-    fputcsv($output, ['', '', '', '', '', 'TOTAL PEMASUKAN:', $total_masuk, '', '']);
-    fputcsv($output, ['', '', '', '', '', 'TOTAL PENGELUARAN:', '', $total_keluar, '']);
-    fputcsv($output, ['', '', '', '', '', 'SALDO AKHIR:', '', '', $saldo_akhir]);
-    
-    fclose($output);
-    exit; // Hentikan script agar HTML di bawah tidak ikut masuk ke dalam file CSV
+        while ($row = mysqli_fetch_assoc($query_export)) {
+            $tgl = date('d/m/Y', strtotime($row['created_at']));
+            $jam = date('H:i', strtotime($row['created_at']));
+            $jenis = $row['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran';
+            
+            $pemasukan = $row['type'] == 'INCOME' ? $row['amount'] : 0;
+            $pengeluaran = $row['type'] == 'EXPENSE' ? $row['amount'] : 0;
+            $nominal_bersih = $row['type'] == 'INCOME' ? $row['amount'] : -$row['amount'];
+            
+            // Format warna baris zebra
+            $bg = ($no % 2 == 0) ? '#f9f9f9' : '#ffffff';
+            ?>
+            <tr style="background-color: <?= $bg; ?>;">
+                <td style="text-align:center;"><?= $no++; ?></td>
+                <td style="text-align:center;"><?= $tgl; ?></td>
+                <td style="text-align:center;"><?= $jam; ?></td>
+                <td><?= htmlspecialchars($row['ic_name']); ?></td>
+                <td style="text-align:center; color: <?= $row['type'] == 'INCOME' ? '#377453' : '#d33'; ?>; font-weight:bold;"><?= $jenis; ?></td>
+                <td><?= htmlspecialchars($row['description']); ?></td>
+                <td style="text-align:right;"><?= $pemasukan; ?></td>
+                <td style="text-align:right;"><?= $pengeluaran; ?></td>
+                <td style="text-align:right; font-weight:bold; color: <?= $nominal_bersih < 0 ? '#d33' : '#377453'; ?>;"><?= $nominal_bersih; ?></td>
+            </tr>
+            <?php
+            $total_masuk += $pemasukan;
+            $total_keluar += $pengeluaran;
+        }
+        $saldo_akhir = $total_masuk - $total_keluar;
+        ?>
+        
+        <!-- Summary Rows -->
+        <tr><td colspan="9" style="border:none;"></td></tr>
+        <tr style="background-color:#edf0f4;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold;">TOTAL PEMASUKAN:</td>
+            <td style="text-align:right; font-weight:bold; color:#377453;"><?= $total_masuk; ?></td>
+            <td colspan="2" style="border:none;"></td>
+        </tr>
+        <tr style="background-color:#edf0f4;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold;">TOTAL PENGELUARAN:</td>
+            <td style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; color:#d33;"><?= $total_keluar; ?></td>
+            <td style="border:none;"></td>
+        </tr>
+        <tr style="background-color:#e2e8f0;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; font-size:14px;">SALDO AKHIR:</td>
+            <td colspan="2" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; font-size:14px; color: <?= $saldo_akhir < 0 ? '#d33' : '#1e412e'; ?>;"><?= $saldo_akhir; ?></td>
+        </tr>
+    </table>
+    <?php
+    exit;
 }
 
 // ==========================================
 // 2. PROSES INPUT KAS
 // ==========================================
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role === 'Treasurer') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && in_array($role, ['Treasurer', 'Admin'])) {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) die("Request tidak valid.");
 
     $type = $_POST['type'];
@@ -116,6 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role
         $insert->bind_param("isis", $user_id, $type, $amount, $description);
         $insert->execute();
         
+        // Catat ke activity_logs
+        $action_detail = "Menambahkan kas " . ($type == 'INCOME' ? 'Pemasukan' : 'Pengeluaran') . " sebesar $" . number_format($amount, 0, ',', '.') . " (" . $description . ")";
+        $log = $conn->prepare("INSERT INTO activity_logs (user_id, action_type, action_detail) VALUES (?, 'CREATE_KAS', ?)");
+        $log->bind_param("is", $user_id, $action_detail);
+        $log->execute();
+        
         // Kirim sinyal sukses untuk SweetAlert
         $_SESSION['swal_success'] = "Transaksi kas berhasil dicatat!";
         header("Location: dashboard.php");
@@ -126,17 +161,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role
 // ==========================================
 // 3. PROSES HAPUS KAS
 // ==========================================
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_kas']) && $role === 'Treasurer') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_kas']) && in_array($role, ['Treasurer', 'Admin'])) {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) die("Request tidak valid.");
 
     $kas_id = (int)$_POST['kas_id'];
     if ($kas_id > 0) {
-        $hapus = $conn->prepare("DELETE FROM kas_transactions WHERE id = ?");
-        $hapus->bind_param("i", $kas_id);
-        $hapus->execute();
+        // Ambil data asli sebelum dihapus
+        $cek_data = $conn->prepare("SELECT type, amount, description FROM kas_transactions WHERE id = ?");
+        $cek_data->bind_param("i", $kas_id);
+        $cek_data->execute();
+        $res_data = $cek_data->get_result();
         
-        // Kirim sinyal sukses untuk SweetAlert
-        $_SESSION['swal_deleted'] = "Transaksi berhasil dihapus dari riwayat.";
+        if ($res_data->num_rows > 0) {
+            $data_asli = $res_data->fetch_assoc();
+            
+            // Catat ke activity_logs
+            $action_detail = "Menghapus kas " . ($data_asli['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran') . " sebesar $" . number_format($data_asli['amount'], 0, ',', '.') . " (" . $data_asli['description'] . ")";
+            $log = $conn->prepare("INSERT INTO activity_logs (user_id, action_type, action_detail) VALUES (?, 'DELETE_KAS', ?)");
+            $log->bind_param("is", $user_id, $action_detail);
+            $log->execute();
+            
+            // Hapus dari kas_transactions
+            $hapus = $conn->prepare("DELETE FROM kas_transactions WHERE id = ?");
+            $hapus->bind_param("i", $kas_id);
+            $hapus->execute();
+            
+            // Kirim sinyal sukses untuk SweetAlert
+            $_SESSION['swal_deleted'] = "Transaksi berhasil dihapus dan dicatat di Activity Log.";
+        }
         header("Location: dashboard.php");
         exit;
     }
@@ -179,31 +231,31 @@ $query_history = mysqli_query($conn, "
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">Los Santos Street Team</h1>
+            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">LOS SANTOS STREET TEAM</h1>
             <nav class="text-sm font-semibold space-x-4 flex items-center">
-
                 <span class="text-gray-300 mr-4 hidden md:inline"><i class="fa fa-user"></i> <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
                 <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
             </nav>
         </div>
     </header>
 
-    <div class="max-w-6xl mx-auto px-4 mt-6">
+    <!-- Tab Menu Khusus Aplikasi -->
+    <div class="bg-white border-b border-gray-200 shadow-sm mb-6">
+        <div class="max-w-6xl mx-auto px-4 flex gap-2">
+            <a href="dashboard.php" class="lsst-tab active"><i class="fa fa-money"></i> Arus Kas</a>
+            <?php if ($role === 'Admin'): ?>
+            <a href="adminDashboard.php" class="lsst-tab"><i class="fa fa-shield"></i> Panel Administrator</a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4">
         
         <div class="flex justify-between items-end mb-6 pb-2 border-b border-gray-300">
             <div class="text-sm text-gray-500">
                 <a href="index.php" class="hover:underline"><i class="fa fa-home"></i> Home</a> 
                 <i class="fa fa-angle-right mx-2"></i> <span>Dashboard Kas</span>
             </div>
-            
-            <?php if ($role === 'Treasurer'): ?>
-            <form action="" method="POST">
-                <?= csrf_field(); ?>
-                <button type="submit" name="export_csv" class="bg-[#1e412e] hover:bg-[#377453] text-white px-4 py-2 rounded text-sm font-bold transition shadow">
-                    <i class="fa fa-download"></i> Export Laporan CSV
-                </button>
-            </form>
-            <?php endif; ?>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -236,7 +288,7 @@ $query_history = mysqli_query($conn, "
                         <span><i class="fa fa-plus-circle"></i> Catat Transaksi</span>
                     </div>
                     <div class="p-4">
-                        <?php if ($role === 'Treasurer'): ?>
+                        <?php if (in_array($role, ['Treasurer', 'Admin'])): ?>
                             <form action="" method="POST" class="space-y-4">
                                 <?= csrf_field(); ?>
                                 <div>
@@ -269,8 +321,16 @@ $query_history = mysqli_query($conn, "
 
             <div class="w-full md:w-2/3">
                 <div class="ipsBox">
-                    <div class="ipsBox_header">
-                        <span><i class="fa fa-list-alt"></i> Riwayat Arus Kas</span>
+                    <div class="ipsBox_header bg-[#1e412e] text-white flex justify-between items-center">
+                        <span><i class="fa fa-list-alt"></i> Riwayat Transaksi</span>
+                        <?php if (in_array($role, ['Treasurer', 'Admin'])): ?>
+                        <form action="" method="POST" class="m-0 p-0">
+                            <?= csrf_field(); ?>
+                            <button type="submit" name="export_csv" class="bg-yellow-500 hover:bg-yellow-400 text-[#1e412e] px-3 py-1 rounded text-xs font-bold transition shadow" title="Unduh Laporan Format Excel">
+                                <i class="fa fa-download"></i> Ekspor XLS
+                            </button>
+                        </form>
+                        <?php endif; ?>
                     </div>
                     <div class="overflow-x-auto p-4">
                         <table class="w-full text-left border-collapse text-sm min-w-max">
@@ -280,7 +340,7 @@ $query_history = mysqli_query($conn, "
                                     <th class="p-3">Pencatat</th>
                                     <th class="p-3">Keterangan</th>
                                     <th class="p-3 text-right">Nominal</th>
-                                    <?php if ($role === 'Treasurer'): ?>
+                                    <?php if (in_array($role, ['Treasurer', 'Admin'])): ?>
                                     <th class="p-3 text-center">Aksi</th>
                                     <?php endif; ?>
                                 </tr>
@@ -302,7 +362,7 @@ $query_history = mysqli_query($conn, "
                                                 <?= $row['TYPE'] == 'INCOME' ? '+' : '-'; ?> $<?= number_format($row['amount'], 0, ',', '.'); ?>
                                             </td>
                                             
-                                            <?php if ($role === 'Treasurer'): ?>
+                                            <?php if (in_array($role, ['Treasurer', 'Admin'])): ?>
                                             <td class="p-3 text-center">
                                                 <form action="" method="POST" id="delete-form-<?= $row['id']; ?>">
                                                     <?= csrf_field(); ?>
@@ -318,7 +378,7 @@ $query_history = mysqli_query($conn, "
                                     <?php endwhile; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="<?= $role === 'Treasurer' ? '5' : '4'; ?>" class="p-6 text-center text-gray-500">Belum ada riwayat transaksi kas tercatat.</td>
+                                        <td colspan="<?= in_array($role, ['Treasurer', 'Admin']) ? '5' : '4'; ?>" class="p-6 text-center text-gray-500">Belum ada riwayat transaksi kas tercatat.</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
