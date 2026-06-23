@@ -1,16 +1,22 @@
 <?php
+/** @var mysqli $conn */
 require 'init.php';
 if(isset($_SESSION['user_id'])) {
     header("Location: dashboard.php");
     exit;
 }
+
+// Mengambil total member dari database
+$query_member = mysqli_query($conn, "SELECT COUNT(id) as total FROM users");
+$data_member = mysqli_fetch_assoc($query_member);
+$total_member = $data_member['total'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Los Santos Street Tuners - Community Portal</title>
+    <title>Los Santos Street Team - Community Portal</title>
     
     <!-- Link CSS Sendiri -->
     <link rel="stylesheet" href="./style/style.css">
@@ -54,7 +60,7 @@ if(isset($_SESSION['user_id'])) {
                 <!-- Welcome Panel -->
                 <div class="ipsBox">
                     <div class="ipsBox_header">
-                        <span>Welcome to Los Santos Street Tuners</span>
+                        <span>Welcome to Los Santos Street Team</span>
                     </div>
                     <div class="p-6 text-sm leading-relaxed text-gray-700">
                         <p class="mb-4">
@@ -113,7 +119,7 @@ if(isset($_SESSION['user_id'])) {
                         </div>
                         <div class="mb-3">
                             <span class="block text-gray-500 text-xs uppercase font-bold">Total Member Web</span>
-                            <span class="text-gray-800 font-bold">Menunggu Database</span>
+                            <span class="text-gray-800 font-bold"><?= number_format($total_member, 0, ',', '.'); ?> Anggota</span>
                         </div>
                     </div>
                 </div>
@@ -133,7 +139,7 @@ if(isset($_SESSION['user_id'])) {
 
     <!-- Footer -->
     <footer class="mt-8 py-6 text-center text-xs text-gray-400 border-t border-gray-200">
-        &copy; <?php echo date("Y"); ?> Los Santos Street Tuners.<br>
+        &copy; <?php echo date("Y"); ?> Los Santos Street Team.<br>
         Powered by PHP Native & MySQL.
     </footer>
 
