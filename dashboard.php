@@ -2,7 +2,6 @@
 /** @var mysqli $conn */
 require 'init.php';
 
-// Proteksi Halaman: Jika belum login, tendang ke halaman login
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
@@ -10,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Ambil data user yang sedang login (Nama IC dan Role)
+// Ambil data user
 $stmt = $conn->prepare("SELECT ic_name, role FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -19,19 +18,124 @@ $user = $stmt->get_result()->fetch_assoc();
 $role = $user['role'];
 $ic_name = htmlspecialchars($user['ic_name']);
 
-// Proses Input Kas (HANYA dieksekusi jika yang login adalah Treasurer)
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role === 'Treasurer') {
-    // CSRF Protection
+// ==========================================
+// 1. FITUR EXPORT EXCEL (Khusus Treasurer)
+// ==========================================
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['export_csv']) && $role === 'Treasurer') {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) {
-        die("Request tidak valid. Silakan muat ulang halaman.");
+        die("Request tidak valid.");
     }
 
-    // Whitelist: hanya INCOME dan EXPENSE yang diizinkan
+    // Ubah ekstensi menjadi .xls untuk trik HTML to Excel
+    $filename = "Laporan_Kas_LSST_" . date('Ymd_His') . ".xls";
+    
+    // Set header khusus Excel
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    
+    // Render tabel HTML untuk dibaca oleh Excel (agar ada garis rapi)
+    ?>
+    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif;">
+        <!-- Kop Laporan -->
+        <tr>
+            <th colspan="9" style="font-size:16px; text-align:center; background-color:#f0f0f0;">LAPORAN ARUS KAS - LOS SANTOS STREET TEAM</th>
+        </tr>
+        <tr>
+            <td colspan="9" style="text-align:center; background-color:#f0f0f0;">Tanggal Cetak: <?= date('d/m/Y H:i:s'); ?></td>
+        </tr>
+        <tr><td colspan="9" style="border:none;"></td></tr>
+        
+        <!-- Header Kolom (Berwarna dan Tebal) -->
+        <tr>
+            <th style="background-color:#1e412e; color:white; width: 40px;">No.</th>
+            <th style="background-color:#1e412e; color:white; width: 80px;">Tanggal</th>
+            <th style="background-color:#1e412e; color:white; width: 60px;">Jam</th>
+            <th style="background-color:#1e412e; color:white; width: 150px;">Pencatat (IC)</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Jenis Transaksi</th>
+            <th style="background-color:#1e412e; color:white; width: 300px;">Keterangan</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Pemasukan ($)</th>
+            <th style="background-color:#1e412e; color:white; width: 120px;">Pengeluaran ($)</th>
+            <th style="background-color:#1e412e; color:white; width: 150px;">Nominal Bersih ($)</th>
+        </tr>
+        
+        <?php
+        $query_export = mysqli_query($conn, "
+            SELECT k.id, k.created_at, u.ic_name, k.type, k.amount, k.description 
+            FROM kas_transactions k 
+            JOIN users u ON k.user_id = u.id 
+            ORDER BY k.created_at ASC
+        ");
+        
+        $no = 1;
+        $total_masuk = 0;
+        $total_keluar = 0;
+        
+        while ($row = mysqli_fetch_assoc($query_export)) {
+            $tgl = date('d/m/Y', strtotime($row['created_at']));
+            $jam = date('H:i', strtotime($row['created_at']));
+            $jenis = $row['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran';
+            
+            $pemasukan = $row['type'] == 'INCOME' ? $row['amount'] : 0;
+            $pengeluaran = $row['type'] == 'EXPENSE' ? $row['amount'] : 0;
+            $nominal_bersih = $row['type'] == 'INCOME' ? $row['amount'] : -$row['amount'];
+            
+            // Format warna baris zebra
+            $bg = ($no % 2 == 0) ? '#f9f9f9' : '#ffffff';
+            ?>
+            <tr style="background-color: <?= $bg; ?>;">
+                <td style="text-align:center;"><?= $no++; ?></td>
+                <td style="text-align:center;"><?= $tgl; ?></td>
+                <td style="text-align:center;"><?= $jam; ?></td>
+                <td><?= htmlspecialchars($row['ic_name']); ?></td>
+                <td style="text-align:center; color: <?= $row['type'] == 'INCOME' ? '#377453' : '#d33'; ?>; font-weight:bold;"><?= $jenis; ?></td>
+                <td><?= htmlspecialchars($row['description']); ?></td>
+                <td style="text-align:right;"><?= $pemasukan; ?></td>
+                <td style="text-align:right;"><?= $pengeluaran; ?></td>
+                <td style="text-align:right; font-weight:bold; color: <?= $nominal_bersih < 0 ? '#d33' : '#377453'; ?>;"><?= $nominal_bersih; ?></td>
+            </tr>
+            <?php
+            $total_masuk += $pemasukan;
+            $total_keluar += $pengeluaran;
+        }
+        $saldo_akhir = $total_masuk - $total_keluar;
+        ?>
+        
+        <!-- Summary Rows -->
+        <tr><td colspan="9" style="border:none;"></td></tr>
+        <tr style="background-color:#edf0f4;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold;">TOTAL PEMASUKAN:</td>
+            <td style="text-align:right; font-weight:bold; color:#377453;"><?= $total_masuk; ?></td>
+            <td colspan="2" style="border:none;"></td>
+        </tr>
+        <tr style="background-color:#edf0f4;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold;">TOTAL PENGELUARAN:</td>
+            <td style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; color:#d33;"><?= $total_keluar; ?></td>
+            <td style="border:none;"></td>
+        </tr>
+        <tr style="background-color:#e2e8f0;">
+            <td colspan="5" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; font-size:14px;">SALDO AKHIR:</td>
+            <td colspan="2" style="border:none;"></td>
+            <td style="text-align:right; font-weight:bold; font-size:14px; color: <?= $saldo_akhir < 0 ? '#d33' : '#1e412e'; ?>;"><?= $saldo_akhir; ?></td>
+        </tr>
+    </table>
+    <?php
+    exit;
+}
+
+// ==========================================
+// 2. PROSES INPUT KAS
+// ==========================================
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role === 'Treasurer') {
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) die("Request tidak valid.");
+
     $type = $_POST['type'];
-    $allowed_types = ['INCOME', 'EXPENSE'];
-    if (!in_array($type, $allowed_types, true)) {
-        die("Tipe transaksi tidak valid.");
-    }
+    if (!in_array($type, ['INCOME', 'EXPENSE'], true)) die("Tipe transaksi tidak valid.");
 
     $amount = (int) preg_replace('/\D/', '', $_POST['amount']);
     $description = trim($_POST['description']);
@@ -41,33 +145,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_kas']) && $role
         $insert->bind_param("isis", $user_id, $type, $amount, $description);
         $insert->execute();
         
-        // Refresh halaman agar form bersih dan saldo terupdate otomatis
-        header("Location: dashboard.php?sukses=1");
+        // Kirim sinyal sukses untuk SweetAlert
+        $_SESSION['swal_success'] = "Transaksi kas berhasil dicatat!";
+        header("Location: dashboard.php");
         exit;
     }
 }
 
-// Proses Hapus Kas (HANYA dieksekusi jika yang login adalah Treasurer)
+// ==========================================
+// 3. PROSES HAPUS KAS
+// ==========================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_kas']) && $role === 'Treasurer') {
-    // CSRF Protection
-    if (!verify_csrf($_POST['csrf_token'] ?? '')) {
-        die("Request tidak valid. Silakan muat ulang halaman.");
-    }
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) die("Request tidak valid.");
 
     $kas_id = (int)$_POST['kas_id'];
-    
     if ($kas_id > 0) {
         $hapus = $conn->prepare("DELETE FROM kas_transactions WHERE id = ?");
         $hapus->bind_param("i", $kas_id);
         $hapus->execute();
         
-        // Refresh halaman setelah dihapus
-        header("Location: dashboard.php?dihapus=1");
+        // Kirim sinyal sukses untuk SweetAlert
+        $_SESSION['swal_deleted'] = "Transaksi berhasil dihapus dari riwayat.";
+        header("Location: dashboard.php");
         exit;
     }
 }
 
-// Kalkulasi Statistik Kas secara otomatis dari database
+// Kalkulasi Statistik Kas
 $query_stats = mysqli_query($conn, "
     SELECT 
         SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_masuk,
@@ -79,7 +183,7 @@ $total_masuk = $stats['total_masuk'] ?? 0;
 $total_keluar = $stats['total_keluar'] ?? 0;
 $saldo_akhir = $total_masuk - $total_keluar;
 
-// Ambil Data Riwayat Kas (Di-join dengan tabel users untuk menampilkan nama pencatat)
+// Ambil Data Riwayat
 $query_history = mysqli_query($conn, "
     SELECT k.*, u.ic_name 
     FROM kas_transactions k 
@@ -94,20 +198,19 @@ $query_history = mysqli_query($conn, "
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Kas - Los Santos Street Team</title>
-    
     <link rel="stylesheet" href="./style/style.css">
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="antialiased">
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold tracking-widest uppercase">Los Santos Street Team</h1>
+            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">LSST</h1>
             <nav class="text-sm font-semibold space-x-4 flex items-center">
-                <span class="text-gray-300 mr-4"><i class="fa fa-user"></i> Halo, <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
+                <span class="text-gray-300 mr-4 hidden md:inline"><i class="fa fa-user"></i> <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
                 <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
             </nav>
         </div>
@@ -115,22 +218,21 @@ $query_history = mysqli_query($conn, "
 
     <div class="max-w-6xl mx-auto px-4 mt-6">
         
-        <div class="text-sm text-gray-500 mb-6 pb-2 border-b border-gray-300">
-            <a href="index.php" class="hover:underline"><i class="fa fa-home"></i> Home</a> 
-            <i class="fa fa-angle-right mx-2"></i> <span>Dashboard Kas</span>
+        <div class="flex justify-between items-end mb-6 pb-2 border-b border-gray-300">
+            <div class="text-sm text-gray-500">
+                <a href="index.php" class="hover:underline"><i class="fa fa-home"></i> Home</a> 
+                <i class="fa fa-angle-right mx-2"></i> <span>Dashboard Kas</span>
+            </div>
+            
+            <?php if ($role === 'Treasurer'): ?>
+            <form action="" method="POST">
+                <?= csrf_field(); ?>
+                <button type="submit" name="export_csv" class="bg-[#1e412e] hover:bg-[#377453] text-white px-4 py-2 rounded text-sm font-bold transition shadow">
+                    <i class="fa fa-download"></i> Export Laporan CSV
+                </button>
+            </form>
+            <?php endif; ?>
         </div>
-
-        <?php if(isset($_GET['sukses'])): ?>
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 text-sm shadow-sm" role="alert">
-            <p><i class="fa fa-check-circle"></i> Transaksi kas berhasil dicatat dan saldo telah diperbarui!</p>
-        </div>
-        <?php endif; ?>
-
-        <?php if(isset($_GET['dihapus'])): ?>
-        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 text-sm shadow-sm" role="alert">
-            <p><i class="fa fa-info-circle"></i> Transaksi kas berhasil dihapus dari riwayat.</p>
-        </div>
-        <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="ipsBox mb-0 border-t-4 border-green-500">
@@ -148,20 +250,20 @@ $query_history = mysqli_query($conn, "
             <div class="ipsBox mb-0 border-t-4 border-[#1e412e] bg-[#edf0f4]">
                 <div class="p-4">
                     <span class="text-[#1e412e] text-xs font-bold uppercase">Saldo Kas Saat Ini</span>
-                    <h3 class="text-3xl font-extrabold text-[#377453] mt-1">$<?= number_format($saldo_akhir, 0, ',', '.'); ?></h3>
+                    <h3 class="text-3xl font-extrabold <?= $saldo_akhir < 0 ? 'text-red-600' : 'text-[#377453]'; ?> mt-1">
+                        <?= $saldo_akhir < 0 ? '-' : ''; ?>$<?= number_format(abs($saldo_akhir), 0, ',', '.'); ?>
+                    </h3>
                 </div>
             </div>
         </div>
 
         <div class="flex flex-col md:flex-row gap-6">
-            
             <div class="w-full md:w-1/3">
                 <div class="ipsBox">
                     <div class="ipsBox_header">
                         <span><i class="fa fa-plus-circle"></i> Catat Transaksi</span>
                     </div>
                     <div class="p-4">
-                        
                         <?php if ($role === 'Treasurer'): ?>
                             <form action="" method="POST" class="space-y-4">
                                 <?= csrf_field(); ?>
@@ -186,10 +288,9 @@ $query_history = mysqli_query($conn, "
                             <div class="text-center py-6 text-gray-500">
                                 <i class="fa fa-eye fa-3x mb-3 text-gray-300"></i>
                                 <h4 class="font-bold text-gray-700">Mode Transparansi</h4>
-                                <p class="text-xs mt-2">Sebagai Member, kamu hanya memiliki akses untuk melihat riwayat arus kas. Hubungi Management atau Treasurer jika ada selisih data.</p>
+                                <p class="text-xs mt-2">Sebagai Member, kamu hanya memiliki akses untuk melihat riwayat arus kas.</p>
                             </div>
                         <?php endif; ?>
-
                     </div>
                 </div>
             </div>
@@ -200,7 +301,7 @@ $query_history = mysqli_query($conn, "
                         <span><i class="fa fa-list-alt"></i> Riwayat Arus Kas</span>
                     </div>
                     <div class="overflow-x-auto p-4">
-                        <table class="w-full text-left border-collapse text-sm">
+                        <table class="w-full text-left border-collapse text-sm min-w-max">
                             <thead>
                                 <tr class="bg-gray-100 border-b-2 border-gray-200 text-gray-600">
                                     <th class="p-3">Waktu</th>
@@ -231,16 +332,16 @@ $query_history = mysqli_query($conn, "
                                             
                                             <?php if ($role === 'Treasurer'): ?>
                                             <td class="p-3 text-center">
-                                                <form action="" method="POST" onsubmit="return confirm('Yakin ingin menghapus transaksi ini?');">
+                                                <form action="" method="POST" id="delete-form-<?= $row['id']; ?>">
                                                     <?= csrf_field(); ?>
                                                     <input type="hidden" name="kas_id" value="<?= $row['id']; ?>">
-                                                    <button type="submit" name="delete_kas" class="text-red-500 hover:text-red-700 transition" title="Hapus Transaksi">
-                                                        <i class="fa fa-trash"></i>
+                                                    <input type="hidden" name="delete_kas" value="1">
+                                                    <button type="button" onclick="confirmDelete(<?= $row['id']; ?>)" class="text-red-500 hover:text-red-700 transition" title="Hapus Transaksi">
+                                                        <i class="fa fa-trash text-lg"></i>
                                                     </button>
                                                 </form>
                                             </td>
                                             <?php endif; ?>
-
                                         </tr>
                                     <?php endwhile; ?>
                                 <?php else: ?>
@@ -256,5 +357,49 @@ $query_history = mysqli_query($conn, "
 
         </div>
     </div>
+
+    <script>
+        // 1. Pop-up Konfirmasi Hapus Keren
+        function confirmDelete(id) {
+            Swal.fire({
+                title: 'Hapus Transaksi?',
+                text: "Data kas ini akan dihapus secara permanen dan memengaruhi saldo!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#8a9499',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Jika user klik 'Ya', submit form PHP-nya
+                    document.getElementById('delete-form-' + id).submit();
+                }
+            })
+        }
+
+        // 2. Notifikasi Sukses Input Data
+        <?php if (isset($_SESSION['swal_success'])): ?>
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: '<?= $_SESSION['swal_success']; ?>',
+                confirmButtonColor: '#377453'
+            });
+            <?php unset($_SESSION['swal_success']); // Hapus session agar tidak muncul terus ?>
+        <?php endif; ?>
+
+        // 3. Notifikasi Sukses Hapus Data
+        <?php if (isset($_SESSION['swal_deleted'])): ?>
+            Swal.fire({
+                icon: 'info',
+                title: 'Dihapus',
+                text: '<?= $_SESSION['swal_deleted']; ?>',
+                confirmButtonColor: '#1e412e'
+            });
+            <?php unset($_SESSION['swal_deleted']); ?>
+        <?php endif; ?>
+    </script>
 </body>
 </html>
