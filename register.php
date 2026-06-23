@@ -1,6 +1,6 @@
 <?php
-session_start();
-require 'koneksi.php';
+/** @var mysqli $conn */
+require 'init.php';
 
 // Jika pengguna kebetulan sudah login, langsung tendang ke dashboard
 if(isset($_SESSION['user_id'])) {
@@ -12,10 +12,15 @@ $error_msg = '';
 
 // Proses form registrasi saat tombol ditekan
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
-    $email = $_POST['email'];
+    // CSRF Protection
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) {
+        die("Request tidak valid. Silakan muat ulang halaman.");
+    }
+
+    $email = trim($_POST['email']);
     $password = $_POST['password'];
-    $ic_name = htmlspecialchars($_POST['ic_name']);
-    $ooc_name = htmlspecialchars($_POST['ooc_name']);
+    $ic_name = trim($_POST['ic_name']);
+    $ooc_name = trim($_POST['ooc_name']);
 
     // Cek apakah email sudah terdaftar sebelumnya
     $cek_email = $conn->prepare("SELECT id FROM users WHERE email = ?");
@@ -81,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
                 <?php endif; ?>
 
                 <form action="" method="POST" class="space-y-4">
+                    <?= csrf_field(); ?>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
                         <input type="email" name="email" required placeholder="you@example.com" class="w-full border border-gray-300 p-2.5 rounded text-sm focus:outline-none focus:border-[#377453]">

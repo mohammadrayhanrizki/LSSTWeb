@@ -10,7 +10,8 @@ $conn = mysqli_connect($host, $user, $pass, $db);
 
 // Cek apakah koneksi berhasil
 if (!$conn) {
-    die("Koneksi database terputus: " . mysqli_connect_error());
+    error_log("DB Connection Failed: " . mysqli_connect_error());
+    die("Terjadi kesalahan sistem. Silakan coba lagi nanti.");
 }
 
 // Hapus tanda miring ganda di bawah ini jika kamu ingin mengetes koneksi
