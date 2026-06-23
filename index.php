@@ -1,10 +1,6 @@
 <?php
 /** @var mysqli $conn */
 require 'init.php';
-if(isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
-    exit;
-}
 
 // Mengambil total member dari database
 $query_member = mysqli_query($conn, "SELECT COUNT(id) as total FROM users");
@@ -39,14 +35,20 @@ $total_online = $data_online['total_online'] ?? 0;
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
                 <!-- Logo teks sederhana -->
-                <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
-                    <span class="md:hidden">LSST</span>
-                    <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
-                </h1>
+                <a href="index.php" class="hover:text-gray-300 transition block">
+                    <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                        <span class="md:hidden">LSST</span>
+                        <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+                    </h1>
+                </a>
             </div>
             <nav class="text-sm font-semibold space-x-3 md:space-x-6">
                 <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i><span class="hidden sm:inline"> Home</span></a>
-                <a href="login.php" class="hover:text-gray-300"><i class="fa fa-sign-in"></i><span class="hidden sm:inline"> Sign In</span></a>
+                <?php if(isset($_SESSION['user_id'])): ?>
+                    <a href="logout.php" class="hover:text-red-400 text-red-500"><i class="fa fa-sign-out"></i><span class="hidden sm:inline"> Logout</span></a>
+                <?php else: ?>
+                    <a href="login.php" class="hover:text-gray-300"><i class="fa fa-sign-in"></i><span class="hidden sm:inline"> Sign In</span></a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
@@ -80,7 +82,7 @@ $total_online = $data_online['total_online'] ?? 0;
                         <hr class="my-4 border-gray-200">
                         <div class="flex gap-3">
                             <a href="register.php" class="ipsButton_primary"><i class="fa fa-user-plus"></i> Gabung Kru</a>
-                            <a href="login.php" class="ipsButton_secondary"><i class="fa fa-lock"></i> Akses Kas</a>
+                            <a href="dashboard.php" class="ipsButton_secondary"><i class="fa fa-book"></i> Akses Kas</a>
                         </div>
                     </div>
                 </div>
@@ -139,9 +141,12 @@ $total_online = $data_online['total_online'] ?? 0;
                 <!-- Discord Widget -->
                 <div class="ipsBox border-l-4 border-[#5865F2]">
                     <div class="p-4 text-sm text-center">
-                        <i class="fa fa-discord fa-3x text-[#5865F2] mb-2"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto mb-3 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.3,46,96.19,53,91.08,65.69,84.69,65.69Z"/></svg>
                         <p class="font-bold text-gray-700 mb-3">Join Discord LSST</p>
-                        <a href="https://bit.ly/LSSTWeb" target="_blank" class="text-[#5865F2] hover:underline text-xs">Klik di sini untuk bergabung</a>
+                        <a href="https://bit.ly/LSSTWeb" target="_blank" class="inline-flex items-center gap-1 bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2 rounded-md font-semibold transition text-xs shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.55,67.55,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.3,46,96.19,53,91.08,65.69,84.69,65.69Z"/></svg>
+                            Klik di sini untuk bergabung
+                        </a>
                     </div>
                 </div>
 

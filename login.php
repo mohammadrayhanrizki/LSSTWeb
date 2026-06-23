@@ -72,10 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && (isset($_POST['login_user']) || isse
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
-                <span class="md:hidden">LSST</span>
-                <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
-            </h1>
+            <a href="index.php" class="hover:text-gray-300 transition block">
+                <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                    <span class="md:hidden">LSST</span>
+                    <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+                </h1>
+            </a>
             <nav class="text-sm font-semibold space-x-3 md:space-x-6">
                 <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i><span class="hidden sm:inline"> Home</span></a>
                 <a href="login.php" class="text-gray-300"><i class="fa fa-sign-in"></i><span class="hidden sm:inline"> Sign In</span></a>

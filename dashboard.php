@@ -3,20 +3,20 @@
 require 'init.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
+    $role = 'Guest';
+    $ic_name = 'Guest';
+    $user_id = null;
+} else {
+    $user_id = $_SESSION['user_id'];
+    // Ambil data user
+    $stmt = $conn->prepare("SELECT ic_name, role FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    
+    $role = $user['role'] ?? 'Member';
+    $ic_name = htmlspecialchars($user['ic_name'] ?? 'User');
 }
-
-$user_id = $_SESSION['user_id'];
-
-// Ambil data user
-$stmt = $conn->prepare("SELECT ic_name, role FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
-
-$role = $user['role'];
-$ic_name = htmlspecialchars($user['ic_name']);
 
 // ==========================================
 // 1. FITUR EXPORT EXCEL (Khusus Treasurer)
@@ -236,13 +236,19 @@ $online_count = $online_data['total'] ?? 1;
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
-                <span class="md:hidden">LSST</span>
-                <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
-            </h1>
+            <a href="index.php" class="hover:text-gray-300 transition block">
+                <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                    <span class="md:hidden">LSST</span>
+                    <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+                </h1>
+            </a>
             <nav class="text-sm font-semibold space-x-3 md:space-x-4 flex items-center">
                 <span class="text-gray-300 mr-4 hidden md:inline"><i class="fa fa-user"></i> <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
-                <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
+                <?php if ($role === 'Guest'): ?>
+                    <a href="login.php" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-in"></i> Login</a>
+                <?php else: ?>
+                    <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>
@@ -323,7 +329,7 @@ $online_count = $online_data['total'] ?? 1;
                             <div class="text-center py-6 text-gray-500">
                                 <i class="fa fa-eye fa-3x mb-3 text-gray-300"></i>
                                 <h4 class="font-bold text-gray-700">Mode Transparansi</h4>
-                                <p class="text-xs mt-2">Sebagai Member, kamu hanya memiliki akses untuk melihat riwayat arus kas.</p>
+                                <p class="text-xs mt-2">Anda sedang berada dalam mode hanya-lihat (*read-only*). Akses edit hanya untuk pengurus.</p>
                             </div>
                         <?php endif; ?>
                     </div>

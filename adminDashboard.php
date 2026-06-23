@@ -89,10 +89,12 @@ $online_count = $online_data['total'] ?? 1;
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
-                <span class="md:hidden">LSST</span>
-                <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
-            </h1>
+            <a href="index.php" class="hover:text-gray-300 transition block">
+                <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                    <span class="md:hidden">LSST</span>
+                    <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+                </h1>
+            </a>
             <nav class="text-sm font-semibold space-x-3 md:space-x-4 flex items-center">
                 <span class="text-yellow-400 mr-4 hidden md:inline"><i class="fa fa-user-secret"></i> <?= $ic_name; ?> (Admin)</span>
                 <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
