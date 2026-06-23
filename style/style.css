@@ -104,3 +104,12 @@ body {
 .ipsButton_secondary:hover {
   background-color: #d8dde3;
 }
+
+/* Hide Scrollbar for Horizontal Scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

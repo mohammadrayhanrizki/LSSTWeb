@@ -34,11 +34,14 @@ $total_member = $data_member['total'] ?? 0;
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center space-x-3">
                 <!-- Logo teks sederhana -->
-                <h1 class="text-2xl font-bold trackin   g-widest uppercase">Los Santos Street Team</h1>
+                <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                    <span class="md:hidden">LSST</span>
+                    <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+                </h1>
             </div>
-            <nav class="text-sm font-semibold space-x-6">
-                <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i> Home</a>
-                <a href="login.php" class="hover:text-gray-300"><i class="fa fa-sign-in"></i> Sign In</a>
+            <nav class="text-sm font-semibold space-x-3 md:space-x-6">
+                <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i><span class="hidden sm:inline"> Home</span></a>
+                <a href="login.php" class="hover:text-gray-300"><i class="fa fa-sign-in"></i><span class="hidden sm:inline"> Sign In</span></a>
             </nav>
         </div>
     </header>

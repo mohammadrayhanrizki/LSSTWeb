@@ -231,8 +231,11 @@ $query_history = mysqli_query($conn, "
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">LOS SANTOS STREET TEAM</h1>
-            <nav class="text-sm font-semibold space-x-4 flex items-center">
+            <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                <span class="md:hidden">LSST</span>
+                <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+            </h1>
+            <nav class="text-sm font-semibold space-x-3 md:space-x-4 flex items-center">
                 <span class="text-gray-300 mr-4 hidden md:inline"><i class="fa fa-user"></i> <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
                 <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
             </nav>
@@ -241,7 +244,7 @@ $query_history = mysqli_query($conn, "
 
     <!-- Tab Menu Khusus Aplikasi -->
     <div class="bg-white border-b border-gray-200 shadow-sm mb-6">
-        <div class="max-w-6xl mx-auto px-4 flex gap-2">
+        <div class="max-w-6xl mx-auto px-4 flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <a href="dashboard.php" class="lsst-tab active"><i class="fa fa-money"></i> Arus Kas</a>
             <?php if ($role === 'Admin'): ?>
             <a href="adminDashboard.php" class="lsst-tab"><i class="fa fa-shield"></i> Panel Administrator</a>
@@ -388,7 +391,14 @@ $query_history = mysqli_query($conn, "
             </div>
 
         </div>
+        </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 py-6 text-center text-xs text-gray-400 border-t border-gray-200">
+        &copy; <?php echo date("Y"); ?> Los Santos Street Team.<br>
+        Powered by PHP Native & MySQL.
+    </footer>
 
     <script>
         // 1. Pop-up Konfirmasi Hapus Keren

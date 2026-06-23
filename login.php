@@ -72,17 +72,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && (isset($_POST['login_user']) || isse
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold tracking-widest uppercase">Los Santos Street Team</h1>
-            <nav class="text-sm font-semibold space-x-6">
-                <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i> Home</a>
-                <a href="login.php" class="text-gray-300"><i class="fa fa-sign-in"></i> Sign In</a>
+            <h1 class="text-xl md:text-2xl font-bold tracking-widest uppercase truncate">
+                <span class="md:hidden">LSST</span>
+                <span class="hidden md:inline">LOS SANTOS STREET TEAM</span>
+            </h1>
+            <nav class="text-sm font-semibold space-x-3 md:space-x-6">
+                <a href="index.php" class="hover:text-gray-300"><i class="fa fa-home"></i><span class="hidden sm:inline"> Home</span></a>
+                <a href="login.php" class="text-gray-300"><i class="fa fa-sign-in"></i><span class="hidden sm:inline"> Sign In</span></a>
             </nav>
         </div>
     </header>
 
-    <div class="flex-grow flex items-center justify-center px-4 py-12">
+    <div class="flex-grow flex items-center justify-center px-4 py-6 md:py-12">
         <div class="w-full max-w-4xl">
             
+            <!-- Tombol Kembali -->
+            <a href="index.php" class="inline-block mb-4 text-gray-500 hover:text-[#1e412e] transition font-semibold text-sm">
+                <i class="fa fa-arrow-left mr-1"></i> Kembali ke Beranda
+            </a>
             <?php if($error_msg): ?>
                 <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 mb-5 text-sm" role="alert">
                     <i class="fa fa-exclamation-triangle"></i> <?php echo $error_msg; ?>
@@ -149,7 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && (isset($_POST['login_user']) || isse
         </div>
     </div>
 
-    <footer class="py-6 text-center text-xs text-gray-400 border-t border-gray-200 bg-white">
+    <!-- Footer -->
+    <footer class="mt-8 py-6 text-center text-xs text-gray-400 border-t border-gray-200">
         &copy; <?php echo date("Y"); ?> Los Santos Street Team.<br>
         Powered by PHP Native & MySQL.
     </footer>
