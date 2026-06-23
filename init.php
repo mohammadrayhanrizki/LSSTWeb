@@ -21,6 +21,16 @@ session_start();
 require_once __DIR__ . '/koneksi.php';
 
 // =============================================================
+// Activity Tracker
+// =============================================================
+if (isset($_SESSION['user_id'])) {
+    $uid = $_SESSION['user_id'];
+    $stmt = $conn->prepare("UPDATE users SET last_activity = NOW() WHERE id = ?");
+    $stmt->bind_param("i", $uid);
+    $stmt->execute();
+}
+
+// =============================================================
 // CSRF Token Helpers
 // =============================================================
 

@@ -10,6 +10,11 @@ if(isset($_SESSION['user_id'])) {
 $query_member = mysqli_query($conn, "SELECT COUNT(id) as total FROM users");
 $data_member = mysqli_fetch_assoc($query_member);
 $total_member = $data_member['total'] ?? 0;
+
+// Mengambil member yang sedang online (aktivitas 5 menit terakhir)
+$query_online = mysqli_query($conn, "SELECT COUNT(id) as total_online FROM users WHERE last_activity >= NOW() - INTERVAL 5 MINUTE");
+$data_online = mysqli_fetch_assoc($query_online);
+$total_online = $data_online['total_online'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -123,6 +128,10 @@ $total_member = $data_member['total'] ?? 0;
                         <div class="mb-3">
                             <span class="block text-gray-500 text-xs uppercase font-bold">Total Member Web</span>
                             <span class="text-gray-800 font-bold"><?= number_format($total_member, 0, ',', '.'); ?> Anggota</span>
+                        </div>
+                        <div class="mb-3">
+                            <span class="block text-gray-500 text-xs uppercase font-bold">Sedang Online</span>
+                            <span class="text-[#377453] font-bold"><i class="fa fa-circle text-xs text-green-500 shadow-green-500/50 drop-shadow-md"></i> <?= number_format($total_online, 0, ',', '.'); ?> Member</span>
                         </div>
                     </div>
                 </div>
