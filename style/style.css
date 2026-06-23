@@ -1,0 +1,72 @@
+/* Import Font Montserrat */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap');
+
+/* Basic Body Style ala JGRP */
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #edf0f4;
+    background: radial-gradient(circle, rgba(237,240,244,1) 0%, rgba(237,240,244,1) 80%, rgba(116,249,127,0.15) 100%);
+    color: #2c3e50;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header Gradient */
+.bg-jgrp-header {
+    background: linear-gradient(90deg, #1e412e 0%, #377453 100%);
+    border-bottom: 4px solid #152d20;
+}
+
+/* Kotak Konten (IPS Box Style) */
+.ipsBox {
+    background-color: #ffffff;
+    border: 1px solid #d8dde3;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.ipsBox_header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #d8dde3;
+    padding: 12px 15px;
+    font-weight: 600;
+    color: #1e412e;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Tombol Klasik */
+.ipsButton_primary {
+    background-color: #377453;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 2px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+    display: inline-block;
+}
+
+.ipsButton_primary:hover {
+    background-color: #1e412e;
+    color: white;
+}
+
+.ipsButton_secondary {
+    background-color: #eef1f6;
+    color: #333;
+    border: 1px solid #d8dde3;
+    padding: 8px 16px;
+    border-radius: 2px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+    display: inline-block;
+}
+
+.ipsButton_secondary:hover {
+    background-color: #d8dde3;
+}
