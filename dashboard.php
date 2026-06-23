@@ -19,113 +19,84 @@ $role = $user['role'];
 $ic_name = htmlspecialchars($user['ic_name']);
 
 // ==========================================
-// 1. FITUR EXPORT EXCEL (Khusus Treasurer)
+// 1. FITUR EXPORT CSV (Khusus Treasurer)
 // ==========================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['export_csv']) && $role === 'Treasurer') {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) {
         die("Request tidak valid.");
     }
 
-    // Ubah ekstensi menjadi .xls untuk trik HTML to Excel
-    $filename = "Laporan_Kas_LSST_" . date('Ymd_His') . ".xls";
+    // Nama file yang akan didownload
+    $filename = "Laporan_Kas_LSST_" . date('Ymd_His') . ".csv";
     
-    // Set header khusus Excel
-    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
-    header("Content-Disposition: attachment; filename=\"$filename\"");
-    header("Pragma: no-cache");
-    header("Expires: 0");
+    // Set header agar browser men-download file, bukan menampilkannya
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
     
-    // Render tabel HTML untuk dibaca oleh Excel (agar ada garis rapi)
-    ?>
-    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; font-family: Arial, sans-serif;">
-        <!-- Kop Laporan -->
-        <tr>
-            <th colspan="9" style="font-size:16px; text-align:center; background-color:#f0f0f0;">LAPORAN ARUS KAS - LOS SANTOS STREET TEAM</th>
-        </tr>
-        <tr>
-            <td colspan="9" style="text-align:center; background-color:#f0f0f0;">Tanggal Cetak: <?= date('d/m/Y H:i:s'); ?></td>
-        </tr>
-        <tr><td colspan="9" style="border:none;"></td></tr>
+    // Buka output stream
+    $output = fopen('php://output', 'w');
+    
+    // Tambahkan BOM UTF-8 agar Excel dapat membaca karakter dengan benar
+    fputs($output, "\xEF\xBB\xBF");
+    
+    // Judul Dokumen
+    fputcsv($output, ['LAPORAN ARUS KAS - LOS SANTOS STREET TEAM']);
+    fputcsv($output, ['Tanggal Cetak:', date('d/m/Y H:i:s')]);
+    fputcsv($output, []); // Baris Kosong
+    
+    // Header kolom untuk Excel
+    fputcsv($output, ['No.', 'Tanggal', 'Jam', 'Pencatat (IC)', 'Jenis Transaksi', 'Keterangan', 'Pemasukan ($)', 'Pengeluaran ($)', 'Nominal Bersih ($)']);
+    
+    // Ambil semua data kas
+    $query_export = mysqli_query($conn, "
+        SELECT k.id, k.created_at, u.ic_name, k.type, k.amount, k.description 
+        FROM kas_transactions k 
+        JOIN users u ON k.user_id = u.id 
+        ORDER BY k.created_at ASC
+    ");
+    
+    $no = 1;
+    $total_masuk = 0;
+    $total_keluar = 0;
+    
+    // Masukkan data ke CSV baris per baris
+    while ($row = mysqli_fetch_assoc($query_export)) {
+        $tgl = date('d/m/Y', strtotime($row['created_at']));
+        $jam = date('H:i', strtotime($row['created_at']));
+        $jenis = $row['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran';
         
-        <!-- Header Kolom (Berwarna dan Tebal) -->
-        <tr>
-            <th style="background-color:#1e412e; color:white; width: 40px;">No.</th>
-            <th style="background-color:#1e412e; color:white; width: 80px;">Tanggal</th>
-            <th style="background-color:#1e412e; color:white; width: 60px;">Jam</th>
-            <th style="background-color:#1e412e; color:white; width: 150px;">Pencatat (IC)</th>
-            <th style="background-color:#1e412e; color:white; width: 120px;">Jenis Transaksi</th>
-            <th style="background-color:#1e412e; color:white; width: 300px;">Keterangan</th>
-            <th style="background-color:#1e412e; color:white; width: 120px;">Pemasukan ($)</th>
-            <th style="background-color:#1e412e; color:white; width: 120px;">Pengeluaran ($)</th>
-            <th style="background-color:#1e412e; color:white; width: 150px;">Nominal Bersih ($)</th>
-        </tr>
+        $pemasukan = $row['type'] == 'INCOME' ? $row['amount'] : 0;
+        $pengeluaran = $row['type'] == 'EXPENSE' ? $row['amount'] : 0;
         
-        <?php
-        $query_export = mysqli_query($conn, "
-            SELECT k.id, k.created_at, u.ic_name, k.type, k.amount, k.description 
-            FROM kas_transactions k 
-            JOIN users u ON k.user_id = u.id 
-            ORDER BY k.created_at ASC
-        ");
+        // Nominal bersih berguna agar di excel bisa gampang dijumlah (SUM)
+        $nominal_bersih = $row['type'] == 'INCOME' ? $row['amount'] : -$row['amount'];
         
-        $no = 1;
-        $total_masuk = 0;
-        $total_keluar = 0;
+        fputcsv($output, [
+            $no++,
+            $tgl,
+            $jam,
+            $row['ic_name'],
+            $jenis,
+            $row['description'],
+            $pemasukan,
+            $pengeluaran,
+            $nominal_bersih
+        ]);
         
-        while ($row = mysqli_fetch_assoc($query_export)) {
-            $tgl = date('d/m/Y', strtotime($row['created_at']));
-            $jam = date('H:i', strtotime($row['created_at']));
-            $jenis = $row['type'] == 'INCOME' ? 'Pemasukan' : 'Pengeluaran';
-            
-            $pemasukan = $row['type'] == 'INCOME' ? $row['amount'] : 0;
-            $pengeluaran = $row['type'] == 'EXPENSE' ? $row['amount'] : 0;
-            $nominal_bersih = $row['type'] == 'INCOME' ? $row['amount'] : -$row['amount'];
-            
-            // Format warna baris zebra
-            $bg = ($no % 2 == 0) ? '#f9f9f9' : '#ffffff';
-            ?>
-            <tr style="background-color: <?= $bg; ?>;">
-                <td style="text-align:center;"><?= $no++; ?></td>
-                <td style="text-align:center;"><?= $tgl; ?></td>
-                <td style="text-align:center;"><?= $jam; ?></td>
-                <td><?= htmlspecialchars($row['ic_name']); ?></td>
-                <td style="text-align:center; color: <?= $row['type'] == 'INCOME' ? '#377453' : '#d33'; ?>; font-weight:bold;"><?= $jenis; ?></td>
-                <td><?= htmlspecialchars($row['description']); ?></td>
-                <td style="text-align:right;"><?= $pemasukan; ?></td>
-                <td style="text-align:right;"><?= $pengeluaran; ?></td>
-                <td style="text-align:right; font-weight:bold; color: <?= $nominal_bersih < 0 ? '#d33' : '#377453'; ?>;"><?= $nominal_bersih; ?></td>
-            </tr>
-            <?php
-            $total_masuk += $pemasukan;
-            $total_keluar += $pengeluaran;
-        }
-        $saldo_akhir = $total_masuk - $total_keluar;
-        ?>
-        
-        <!-- Summary Rows -->
-        <tr><td colspan="9" style="border:none;"></td></tr>
-        <tr style="background-color:#edf0f4;">
-            <td colspan="5" style="border:none;"></td>
-            <td style="text-align:right; font-weight:bold;">TOTAL PEMASUKAN:</td>
-            <td style="text-align:right; font-weight:bold; color:#377453;"><?= $total_masuk; ?></td>
-            <td colspan="2" style="border:none;"></td>
-        </tr>
-        <tr style="background-color:#edf0f4;">
-            <td colspan="5" style="border:none;"></td>
-            <td style="text-align:right; font-weight:bold;">TOTAL PENGELUARAN:</td>
-            <td style="border:none;"></td>
-            <td style="text-align:right; font-weight:bold; color:#d33;"><?= $total_keluar; ?></td>
-            <td style="border:none;"></td>
-        </tr>
-        <tr style="background-color:#e2e8f0;">
-            <td colspan="5" style="border:none;"></td>
-            <td style="text-align:right; font-weight:bold; font-size:14px;">SALDO AKHIR:</td>
-            <td colspan="2" style="border:none;"></td>
-            <td style="text-align:right; font-weight:bold; font-size:14px; color: <?= $saldo_akhir < 0 ? '#d33' : '#1e412e'; ?>;"><?= $saldo_akhir; ?></td>
-        </tr>
-    </table>
-    <?php
-    exit;
+        $total_masuk += $pemasukan;
+        $total_keluar += $pengeluaran;
+    }
+    
+    $saldo_akhir = $total_masuk - $total_keluar;
+    
+    // Tambahkan Summary di bawah tabel
+    fputcsv($output, []); // Baris Kosong
+    fputcsv($output, ['', '', '', '', '', 'TOTAL PEMASUKAN:', $total_masuk, '', '']);
+    fputcsv($output, ['', '', '', '', '', 'TOTAL PENGELUARAN:', '', $total_keluar, '']);
+    fputcsv($output, ['', '', '', '', '', 'SALDO AKHIR:', '', '', $saldo_akhir]);
+    
+    fclose($output);
+    exit; // Hentikan script agar HTML di bawah tidak ikut masuk ke dalam file CSV
 }
 
 // ==========================================
@@ -208,8 +179,9 @@ $query_history = mysqli_query($conn, "
 
     <header class="bg-jgrp-header text-white">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">LSST</h1>
+            <h1 class="text-2xl font-bold tracking-widest uppercase truncate">Los Santos Street Team</h1>
             <nav class="text-sm font-semibold space-x-4 flex items-center">
+
                 <span class="text-gray-300 mr-4 hidden md:inline"><i class="fa fa-user"></i> <?= $ic_name; ?> (<?= htmlspecialchars($role); ?>)</span>
                 <a href="logout.php" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded transition"><i class="fa fa-sign-out"></i> Logout</a>
             </nav>
